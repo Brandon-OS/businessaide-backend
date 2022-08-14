@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 var admin = require("firebase-admin");
 var serviceAccount = require("./service-account-file.json");
+const path = require("node:path");
 admin.initializeApp({
   // make sure to put the initialize before any of the functions i sent you
   credential: admin.credential.cert(serviceAccount),
