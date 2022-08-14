@@ -11,13 +11,15 @@ var task = require("./task");
 var sender = require("./sender");
 var feedback = require("./feedback");
 var leave = require("./leave");
-// const retriever = require("./retriever.js");
-// const temp = retriever.getEmployeeData("blake charles");
-// var data;
-// temp.then((ans) => {
-//   data = ans;
-//   console.log(data);
-// });
+
+app.use(express.static(path.join(__dirname + "/public")));
+
+const corsOptions = {
+  origin: "*",
+  credentials: true, //access-control-allow-credentials:true
+  optionSuccessStatus: 200,
+};
+
 app.get("/getEmployee", (req, res) => {
   retriever.getEmployeeData(req.query.name).then((ans) => {
     // you need the then to wait for the result of the function
@@ -341,16 +343,6 @@ app.get("/getSecretCode", async (req, res) => {
     res.send(ans);
   });
 });
-
-
-
-
-
-
-
-
-
-
 
 const PORT = process.env.PORT || 8080;
 
