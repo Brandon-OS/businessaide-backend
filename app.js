@@ -1,19 +1,17 @@
 const express = require("express");
 const app = express();
+const cors = require("cors");
 var admin = require("firebase-admin");
-var serviceAccount = require("./service-account-file.json");
 const path = require("node:path");
+var serviceAccount = require("./service-account-file.json");
 admin.initializeApp({
   // make sure to put the initialize before any of the functions i sent you
   credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://businessaide.firebaseio.com",
 });
-var retriever = require("./retriever");
-var task = require("./task");
-var sender = require("./sender");
-var feedback = require("./feedback");
-var leave = require("./leave");
 
 app.use(express.static(path.join(__dirname + "/public")));
+app.use(cors(corsOptions));
 
 const corsOptions = {
   origin: "*",
