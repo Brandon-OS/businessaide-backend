@@ -19,6 +19,11 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+var retriever = require("./retriever");
+var task = require("./task");
+var sender = require("./sender");
+var feedback = require("./feedback")
+var leave = require("./leave")
 
 app.get("/getEmployee", (req, res) => {
   retriever.getEmployeeData(req.query.name).then((ans) => {
