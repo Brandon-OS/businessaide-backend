@@ -1,39 +1,23 @@
 const express = require("express");
 const app = express();
-const cors = require("cors");
 var admin = require("firebase-admin");
-const path = require("node:path");
 var serviceAccount = require("./service-account-file.json");
 admin.initializeApp({
   // make sure to put the initialize before any of the functions i sent you
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://businessaide.firebaseio.com",
 });
-// app.use(function(req, res, next) {
-//   res.header("Access-Control-Allow-Origin", "*");
-//   res.header(
-//     "Access-Control-Allow-Headers",
-//     "Origin, X-Requested-With, Content-Type, Accept"
-//   );
-//   next();
-// });
-app.use(express.static(path.join(__dirname + "/public")));
-// app.use(cors({
-//   origin: '*'
-// }));
-
-const corsOptions = {
-  origin: "*",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
-};
-
 var retriever = require("./retriever");
 var task = require("./task");
 var sender = require("./sender");
-var feedback = require("./feedback")
-
-app.use(cors(corsOptions)); // Use this after the variable declaration
+var feedback = require("./feedback");
+var leave = require("./leave");
+// const retriever = require("./retriever.js");
+// const temp = retriever.getEmployeeData("blake charles");
+// var data;
+// temp.then((ans) => {
+//   data = ans;
+//   console.log(data);
+// });
 app.get("/getEmployee", (req, res) => {
   retriever.getEmployeeData(req.query.name).then((ans) => {
     // you need the then to wait for the result of the function
@@ -43,27 +27,25 @@ app.get("/getEmployee", (req, res) => {
 });
 
 app.get("/createMainTask", async (req, res) => {
-                                                 console.log(
-                                                   req.query.taskname
-                                                 );
-                                                 console.log(
-                                                   req.query.description
-                                                 );
-                                                 console.log(
-                                                   req.query.employer
-                                                 );
-                                                 console.log(req.query.people);
-                                                 workerArr = req.query.people.split(
-                                                   ","
-                                                 );
+  console.log(req.query.taskname);
+  console.log(req.query.description);
+  console.log(req.query.employer);
+  console.log(req.query.people);
+  workerArr = req.query.people.split(",");
 
-                                                 let x = await task.createMainTask(
-                                                   req.query.taskname,
-                                                   req.query.description,
-                                                   req.query.employer,
-                                                   workerArr
-                                                 );
-                                               });
+  await task
+    .createMainTask(
+      req.query.taskname,
+      req.query.description,
+      req.query.employer,
+      workerArr
+    )
+    .then((ans) => {
+      // you need the then to wait for the result of the function
+      console.log(ans);
+      res.send(ans);
+    });
+});
 
 app.get("/createSubTask", async (req, res) => {
   console.log(req.query.subTaskName);
@@ -71,14 +53,20 @@ app.get("/createSubTask", async (req, res) => {
   console.log(req.query.goal);
   console.log(req.query.mainTaskName);
   workerArr = req.query.workerArray.split(",");
-  let x = await task.createSubTask(
-    req.query.subTaskName,
-    req.query.subTaskDesc,
-    req.query.goal,
-    req.query.mainTaskName,
-    req.query.employerName,
-    workerArr
-  );
+  await task
+    .createSubTask(
+      req.query.subTaskName,
+      req.query.subTaskDesc,
+      req.query.goal,
+      req.query.mainTaskName,
+      req.query.employerName,
+      workerArr
+    )
+    .then((ans) => {
+      // you need the then to wait for the result of the function
+      console.log(ans);
+      res.send(ans);
+    });
 });
 
 app.get("/displayTask", async (req, res) => {
@@ -158,24 +146,42 @@ app.get("/mainTaskProgress", async (req, res) => {
 });
 
 app.get("/subTaskProgress", async (req, res) => {
-  task.progressSubTask(
-    req.query.subTaskName,
-    req.query.value,
-    req.query.mainTaskName,
-    req.query.employerName
-  );
+  task
+    .progressSubTask(
+      req.query.subTaskName,
+      req.query.value,
+      req.query.mainTaskName,
+      req.query.employerName
+    )
+    .then((ans) => {
+      // you need the then to wait for the result of the function
+      console.log(ans);
+      res.send(ans);
+    });
 });
 
 app.get("/completeMainTask", async (req, res) => {
-  task.completeMainTask(req.query.mainTaskName, req.query.employerName);
+  task
+    .completeMainTask(req.query.mainTaskName, req.query.employerName)
+    .then((ans) => {
+      // you need the then to wait for the result of the function
+      console.log(ans);
+      res.send(ans);
+    });
 });
 
 app.get("/completeSubTask", async (req, res) => {
-  task.completeSubTask(
-    req.query.subTaskName,
-    req.query.mainTaskName,
-    req.query.employerName
-  );
+  task
+    .completeSubTask(
+      req.query.subTaskName,
+      req.query.mainTaskName,
+      req.query.employerName
+    )
+    .then((ans) => {
+      // you need the then to wait for the result of the function
+      console.log(ans);
+      res.send(ans);
+    });
 });
 
 app.get("/sendPayroll", async (req, res) => {
@@ -219,6 +225,7 @@ app.get("/SendEmployee", async (req, res) => {
     .then((ans) => {
       // you need the then to wait for the result of the function
       console.log(ans);
+      res.send(ans);
     });
 });
 
@@ -227,6 +234,7 @@ app.get("/SendEmployer", async (req, res) => {
     .sendEmployer(req.query.firstName, req.query.lastName, req.query.secretCode)
     .then((ans) => {
       // you need the then to wait for the result of the function
+      res.send(ans);
       console.log(ans);
     });
 });
@@ -241,7 +249,7 @@ app.get("/sendFeedback", async (req, res) => {
       req.query.mainTaskName
     )
     .then((ans) => {
-      // you need the then to wait for the result of the function
+      res.send(ans);
       console.log(ans);
     });
 });
@@ -269,6 +277,80 @@ app.get("/getEmployerName", async (req, res) => {
     res.send(ans);
   });
 });
+
+app.get("/applyForLeave", async (req, res) => {
+  leave.applyForLeave(req.query.employeeName, req.query.employerName, req.query.startdate, req.query.enddate, req.query.duration, req.query.reason).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/viewLeaveRequestsByType", async (req, res) => {
+  leave.viewLeaveRequestsByType(req.query.employeeName, req.query.status).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/getLeaveByType", async (req, res) => {
+  leave.getLeaveByType(req.query.employerName, req.query.status).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/acceptLeave", async (req, res) => {
+  leave.acceptLeave(req.query.employeeName, req.query.employerName, req.query.startdate).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/rejectLeave", async (req, res) => {
+  leave.rejectLeave(req.query.employeeName, req.query.employerName, req.query.startdate).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/changeSingleQuota", async (req, res) => {
+  leave.changeSingleQuota(req.query.employerName, req.query.employeeName, req.query.value).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/changeAllQuota", async (req, res) => {
+  leave.changeAllQuota(req.query.employerName, req.query.value).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+app.get("/getSecretCode", async (req, res) => {
+  retriever.getSecretCode(req.query.employerName).then((ans) => {
+    // you need the then to wait for the result of the function
+    console.log(ans);
+    res.send(ans);
+  });
+});
+
+
+
+
+
+
+
+
+
+
 
 const PORT = process.env.PORT || 8080;
 

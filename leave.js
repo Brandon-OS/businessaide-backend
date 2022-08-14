@@ -1,31 +1,46 @@
 // Module to handle leave system for application
 // Employees can apply for leave which will notify employers regarding their leave application
 // Employers will be able to accept or reject their leave application of their employees
+var admin = require("firebase-admin");
+const db = admin.firestore();
 
 // Function for employees to apply for leave
 // Update employees and employers database
-applyForLeave = async(employeeName, employerName, date, duration, reason) => {
-    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(date);
-    const employerLeaveRef = db.collection('employers').doc(employerName).collection('employees').doc(employeeName).collection('leave').doc(date);
+applyForLeave = async(employeeName, employerName, startdate, enddate, duration, reason) => {
+    checkLeaveQuota = async(employeeName, employerName, value) => {
+        const employeeRef = db.doc('employees/' + employeeName);
+        employeeDoc = await employeeRef.get();
+        const leaveQuota = employeeDoc.data().leaveQuota;
+        if (leaveQuota >= value) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(startdate);
+    const employerLeaveRef = db.collection('employers').doc(employerName).collection('employees').doc(employeeName).collection('leave').doc(startdate);
+    const employerRef = db.collection('employers').doc(employerName).collection('leaveApplications').doc(employeeName + startdate);
     const employeeLeaveDoc = await employeeLeaveRef.get();
     const employerLeaveDoc = await employerLeaveRef.get();
-    if (!employeeLeaveDoc.exists || !employerLeaveDoc.exists) {
+    if (employeeLeaveDoc.exists || employerLeaveDoc.exists) {
         const result = {status: 'error', reason: employeeName + ' already has an application for leave on that date'};
         return result;
     } else {
-        if (!this.checkLeaveQuota(employeeName, duration)) {
+        if (!checkLeaveQuota(employeeName, duration)) {
             const result = {status: 'error', reason: employeeName + ' does not have enough leave quota!'};
             return result;
         }
         const data = {
             employeeName: employeeName,
-            date: date,
+            startdate: startdate,
+            enddate: enddate,
             duration: duration,
             reason: reason,
             status: 'pending'
         };
         await employeeLeaveRef.set(data);
         await employerLeaveRef.set(data);
+        await employerRef.set(data);
         const result = {status: 'success', reason: 'Leave application has been sent successfully'};
         return result;
     }
@@ -41,7 +56,7 @@ notifyEmployer = async(employerName) => {
         return result;
     }
     check = async(snapshot) => {
-        let result = snapshot.forEach(employee => {
+        let result = snapshot.forEach(async (employee) => {
             const snappy = await employee.ref.collection('leave').get();
             if (snappy.empty) {
                 const result = {status: 'success', reason: 'no employees have applied for leave', body: false};
@@ -61,63 +76,67 @@ notifyEmployer = async(employerName) => {
 // Function that returns an array of objects containing the leave applications of employees
 // Gets the all leave applications of a certain status (pending, accepted, rejected)
 getLeaveByType = async(employerName, status) => {
-    const employerRef = db.collection('employers').doc(employerName).collection('employees');
-    const snapshot = await employerRef.get();
-    if (!snapshot.empty) {
+    const employerRef = db.collection('employers').doc(employerName).collection('leaveApplications');
+    const snapshot = await employerRef.where("status", "==", status).get();
+    if (snapshot.empty) {
         const result = {status: 'error', reason: employerName + ' does not have any employees!', body: 'no employee'};
         return result;
     }
+    
     find = async(snapshot) => {
-        leaveArr = [];
-        counter = 0;
-        let tempResult = snapshot.forEach(employee => {
-            const snappy = await employee.ref.collection('leave').where('status','==', status).get();
-            if (snappy.empty) {
-                const result = {status: 'success', reason: 'There are no leave requests of that type', body: []};
-                return result;
-            } else {
-                leaveArr.push(employee);
-            }
-            counter += 1;
+        leaveArr = []
+        snapshot.forEach(async(application) => {
+            await leaveArr.push(application.data());
         })
-        if (counter == snapshot.size) {
-            const result = {status: 'success', reason: 'All leave requests have been compiled', body: leaveArr};
+        console.log(snapshot.size)
+        console.log(leaveArr.length)
+        if (leaveArr.length == snapshot.size) {
+            const result = {status: 'success', reason: 'Leave applications have been compiled', body: leaveArr};
             return result;
         }
-        if (tempResult.body == []){
-            return tempResult;
-        }
     }
-    const result = await find(snapshot);
-    return result;  
+    let result = await find(snapshot);
+    return result;
 }
 
 // Function for employers to accept an employee's application for leave
-acceptLeave = async(employeeName, employerName, date) => {
-    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(date);
+acceptLeave = async(employeeName, employerName, startdate) => {
+    console.log(employeeName, employerName,startdate);
+    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(startdate);
+    const employerRef = db.collection('employers').doc(employerName).collection('leaveApplications').doc(employeeName + startdate);
     employeeLeaveDoc = await employeeLeaveRef.get();
     if (!employeeLeaveDoc.exists) {
         const result = {status: 'error', reason: 'This employee does not have any leave applications on that date!'};
         return result;
     }
 
+    leaveresult = await reduceLeaveQuota(employeeName, employerName, employeeLeaveDoc.data().duration);
+    if (leaveresult == 1) {
+        const result = {status: 'success', reason: "This employee does not have enough leave quota!"};
+        return result;
+    }
     await employeeLeaveRef.update({
+        status: 'accepted'
+    })
+    await employerRef.update({
         status: 'accepted'
     })
 
     // update employer side
-    const employerLeaveRef = db.collection('employers/' + employerName + '/employees/' + employeeName + '/leave');
+    const employerLeaveRef = db.collection('employers').doc(employerName).collection('employees').doc(employeeName).collection('leave').doc(startdate);
     await employerLeaveRef.update({
         status: 'accepted'
     })
-    await this.reduceLeaveQuota(employeeName, employeeDoc.data().duration);
     const result = {status: 'success', reason: "This employee's leave application has been accepted!"};
     return result;
 }
 
 // Function for employers to accept an employee's application for leave
-rejectLeave = async(employeeName, employerName, date) => {
-    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(date);
+rejectLeave = async(employeeName, employerName, startdate) => {
+    console.log(employeeName)
+    console.log(startdate)
+    const employeeLeaveRef = db.collection('employees').doc(employeeName).collection('leave').doc(startdate);
+    const employerRef = db.collection('employers').doc(employerName).collection('leaveApplications').doc(employeeName + startdate);
     employeeLeaveDoc = await employeeLeaveRef.get();
     if (!employeeLeaveDoc.exists) {
         const result = {status: 'error', reason: 'This employee does not have any leave applications on that date!'};
@@ -127,9 +146,12 @@ rejectLeave = async(employeeName, employerName, date) => {
     await employeeLeaveRef.update({
         status: 'rejected'
     })
+    await employerRef.update({
+        status: 'rejected'
+    })
 
     // update employer side
-    const employerLeaveRef = db.collection('employers/' + employerName + '/employees/' + employeeName + '/leave');
+    const employerLeaveRef = db.collection('employers').doc(employerName).collection('employees').doc(employeeName).collection('leave').doc(startdate);
     await employerLeaveRef.update({
         status: 'rejected'
     })
@@ -153,7 +175,7 @@ viewLeaveRequestsByType = async(employeeName, status) => {
     assign = async(snapshot, leaveArr) => {
         counter = 0;
         snapshot.forEach(applications => {
-            leaveArr.push(applications);
+            leaveArr.push(applications.data());
             counter += 1;
         })
         if (snapshot.size == counter) {
@@ -201,11 +223,13 @@ viewAllLeaveRequests = async(employeeName) => {
 // Function to check leave quota
 // If less than the required amount, returns 1, else, return 0
 // WILL NOT BE EXPORTED
-checkLeaveQuota = async(employeeName, employerName, value) => {
-    const employeeRef = db.collection('employees/' + employeeName);
+checkLeaveQuota = async(employeeName, value) => {
+    const employeeRef = db.collection('employees').doc(employeeName);
     employeeDoc = await employeeRef.get();
     const leaveQuota = employeeDoc.data().leaveQuota;
-    if (leaveQuota >= value) {
+    console.log(leaveQuota);
+    console.log(value);
+    if (Number(leaveQuota) >= Number(value)) {
         return 0;
     } else {
         return 1;
@@ -215,28 +239,31 @@ checkLeaveQuota = async(employeeName, employerName, value) => {
 // Function to reduce leave quota by a certain amount
 // Returns 0 if successfully returned, 1 if not
 // WILL NOT BE EXPORTED
-reduceLeaveQuota = async(employeeName, value) => {
-    const employeeRef = db.collection('employees/' + employeeName);
-    const employerRef = db.collection('employers/' + employerName + '/employees/' + employeeName);
+reduceLeaveQuota = async(employeeName, employerName, value) => {
+    const employeeRef = db.collection('employees').doc(employeeName);
+    const employerRef = db.collection('employers').doc(employerName).collection('employees').doc(employeeName);
     employeeDoc = await employeeRef.get();
     const leaveQuota = employeeDoc.data().leaveQuota;
-    if (!checkLeaveQuota(employeeName, value)) {
+    console.log(value);
+    leaveResult = await checkLeaveQuota(employeeName, value);
+    console.log(leaveResult);
+   // if (!await checkLeaveQuota(employeeName, value)) {
         await employeeRef.update({
-            leaveQuota: leaveQuota - value
+            leaveQuota: (leaveQuota - value).toString()
         });
         await employerRef.update({
-            leaveQuota: leaveQuota - value
+            leaveQuota: (leaveQuota - value).toString()
         });
         return 0;
-    } else {
-        return 1;
-    }
+   // } else {
+     //   return 1;
+    //}
 }
 
 // Function to change leave quota for a single employee
-changeSingleQuota = (employeeName, value) => {
-    const employeeRef = db.collection('employees/' + employeeName);
-    const employerRef = db.collection('employers/' + employerName + '/employees/' + employeeName);
+changeSingleQuota = async (employeeName, value) => {
+    const employeeRef = db.doc('employees/' + employeeName);
+    const employerRef = db.doc('employers/' + employerName + '/employees/' + employeeName);
     await employeeRef.update({
         leaveQuota: value
     })
@@ -257,7 +284,7 @@ changeAllQuota = async(employerName, value) => {
     }
     // change employee side
     assignEmployees = async(employeeName, value) => {
-        const employeeRef = db.collection('employees/' + employeeName);
+        const employeeRef = db.doc('employees/' + employeeName);
         await employeeRef.update({
             leaveQuota: value
         });

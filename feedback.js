@@ -1,6 +1,6 @@
 // Module to handle all functions for the feedback system of BusinessAide
 var admin = require("firebase-admin");
-// const { snapshotEqual } = require("firebase/firestore");
+const { snapshotEqual } = require("firebase/firestore");
 const db = admin.firestore();
 
 // All feedback to be stored in employer > tasks > feedback
@@ -80,6 +80,8 @@ sendFeedback = async (
     reason: "Feedback has been sent successfully!",
   };
   console.log(result);
+  return result;
+ 
 };
 
 // Function that returns an array of objects containing the feedback of a main task

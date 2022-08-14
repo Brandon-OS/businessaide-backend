@@ -62,6 +62,14 @@ findUserType = async (email) => {
 };
 
 
+getSecretCode = async (employerName)=> {
+  const employerRef =  db.collection("employers").doc(employerName);
+  let doc = await employerRef.get();
+  secretCode = doc.data().secretcode;
+  console.log(secretCode);
+  return secretCode;
+}
+
 getEmployerName = async (employeeName) => {
   const employeeRef = db.collection("employees").doc(employeeName);
   let doc = await employeeRef.get();
@@ -234,6 +242,7 @@ getAllTaskData = async (employerName) => {
       reason: "This employer has not assigned any tasks",
       body: [],
     };
+    return result;
   }
   wait = async (snapshot) => {
     tempTaskArray = [];
@@ -250,7 +259,6 @@ getAllTaskData = async (employerName) => {
   };
   return result;
 };
-
 getAllEmployeeTaskData = async (employeeName) => {
   const snapshot = await db
     .collection("employees")
@@ -260,9 +268,10 @@ getAllEmployeeTaskData = async (employeeName) => {
   if (snapshot.empty) {
     result = {
       status: "empty",
-      reason: "This employee has not been assigned any tasks",
+      reason: "This employer has not assigned any tasks",
       body: [],
     };
+    return result;
   }
   wait = async (snapshot) => {
     tempTaskArray = [];
@@ -397,4 +406,5 @@ module.exports = {
   getAllEmployeeSalary,
   getAllEmployeeTaskData,
   getEmployerName,
+  getSecretCode
 };

@@ -14,22 +14,31 @@ sendEmployer = async (firstName, lastName, secretCode) => {
       firstName: firstName,
       lastName: lastName,
       secretcode: secretCode,
-     
     };
     return employerData;
   };
+  checker = await sc.dupeCheck(secretCode);
+  if (checker == 1) {
+    result = {status: "error", reason: "This Secret Code is already in use!"}
+    return result
+  }
   assign(
     firstName,
     lastName,
     secretCode
   )
-    .then((employerData) => {
+    .then(async(employerData) => {
+     
+    
       db.collection("employers")
         .doc(firstName + " " + lastName)
         .set(employerData);
+    
     })
     .then(() => {
+      result = {status: "success", reason: "Registration Successful"}
       console.log("Employee data sent!");
+      return result;
     });
 };
 
@@ -56,6 +65,7 @@ sendEmployee = async (
     console.log("No employer found, double check spelling");
     return -1;
   }
+  leaveQuota = "0";
 
   assign = async (
     firstName,
@@ -72,7 +82,8 @@ sendEmployee = async (
     overtimeHourlyRate,
     overtimeHours,
     deductions,
-    overallSalary
+    overallSalary,
+    leaveQuota
   ) => {
     var employeeData = {
       firstName: firstName,
@@ -90,6 +101,7 @@ sendEmployee = async (
       overtimeHours: overtimeHours,
       deductions: deductions,
       overallSalary: overallSalary,
+      leaveQuota: leaveQuota
     };
     return employeeData;
   };
@@ -109,7 +121,8 @@ sendEmployee = async (
     overtimeHourlyRate,
     overtimeHours,
     deductions,
-    overallSalary
+    overallSalary,
+    leaveQuota
   )
     .then((employeeData) => {
       db.collection("employees")
@@ -123,7 +136,9 @@ sendEmployee = async (
         .set(employeeData);
     })
     .then(() => {
+   result = {status: "success", reason: "Registration Successful"}
       console.log("Employee data sent!");
+      return result;
     });
 };
 
